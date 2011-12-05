@@ -1,0 +1,2 @@
+#!/bin/sh
+postgres -d 2 -D /usr/local/var/postgres

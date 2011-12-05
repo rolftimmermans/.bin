@@ -1,0 +1,5 @@
+#!/bin/bash
+echo "Deleting evercookie locations Safari missed (see samy.pl/evercookie)"
+rm -r ~/Library/Safari/Databases/*
+rm -r ~/Library/Safari/LocalStorage/*
+rm -r ~/Library/Preferences/Macromedia/Flash\ Player/\#SharedObjects/*

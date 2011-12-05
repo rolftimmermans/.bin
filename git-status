@@ -1,0 +1,1 @@
+find . -name .git -type d -print -execdir git status \;
