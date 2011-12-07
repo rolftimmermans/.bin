@@ -1,0 +1,6 @@
+#!/bin/bash
+
+trap 'kill $(jobs -p)' EXIT
+spin serve -Itest &
+kicker --recipe rails --ruby 'spin push' --silent --quiet &
+wait
