@@ -1,0 +1,4 @@
+#!/bin/bash
+echo 'Starting RabbitMQ'
+echo 'Management interface @ http://localhost:15672'
+rabbitmq-server

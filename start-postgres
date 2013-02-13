@@ -1,4 +1,4 @@
 #!/bin/sh
 sudo sysctl -w kern.sysv.shmmax=1073741824
 sudo sysctl -w kern.sysv.shmall=1073741824
-postgres -d 2 -D /usr/local/var/postgres
+postgres -d 2 -D /usr/local/var/postgres -i
