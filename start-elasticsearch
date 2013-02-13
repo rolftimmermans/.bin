@@ -14,7 +14,7 @@
 #    launchctl unload -wF ~/Library/LaunchAgents/homebrew.mxcl.elasticsearch.plist
 #
 #To start ElasticSearch manually:
-    elasticsearch -f -D es.config=/usr/local/Cellar/elasticsearch/0.19.2/config/elasticsearch.yml
+elasticsearch -f -D es.config=`echo /usr/local/Cellar/elasticsearch/*/config/elasticsearch.yml`
 #
 #See the 'elasticsearch.yml' file for configuration options.
 #
