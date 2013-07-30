@@ -1,0 +1,58 @@
+#!/bin/bash
+
+readonly REMOTESERVER=miranda
+readonly ENVIRONMENT=production
+readonly MYSQLFOLDER=/usr/local/mysql/bin
+
+# A simple bash script to download a MySQL database from the remote
+# VPC and automatically restore it locally for development.
+# Created by Michiel Verkoijen on 2013-07-06.
+# Filename: ~/.bin/download-mysql
+
+echo "Download a $ENVIRONMENT MySQL database and restore it on the local machine."
+
+# Check if a database is specified on the command prompt.
+if [ "$#" == "0" ]; then
+  echo "No database name specified."
+  echo "Usage: download-mysql <FILENAME>"
+  echo "For example: download-mysql sitename_nl"
+  exit 1
+fi
+
+# Check if the local MySQL bin folder exists and otherwise throw an error.
+if [ ! -d $MYSQLFOLDER ]; then
+  echo "Local MySQL bin folder $MYSQLFOLDER cannot be found."
+  echo "Please add the correct location to the bash file and try again."
+  exit 1
+fi
+
+# Create a database dump on the remote server.
+echo "Connecting to $REMOTESERVER to create a database dump..."
+ssh $REMOTESERVER "mysqldump -u root $1_$ENVIRONMENT > $1_$ENVIRONMENT.sql"
+if [[ $? > 0 ]]; then
+   echo "Remote MySQL dump failed somehow. Script stopped."
+   exit
+fi
+
+# Copy the dump from the remote server to the local machine.
+echo "Copying $1_$ENVIRONMENT.sql to local home folder..."
+scp $REMOTESERVER:$1_$ENVIRONMENT.sql ~
+
+# Create a new local database.
+# Also allow the user to quit if it already exists.
+$MYSQLFOLDER/mysqladmin -u root create $1_development&> /dev/null
+if [[ $? > 0 ]]; then
+  echo "MySQL database $1_development probably already exists."
+  read -p "Are you sure you wish to overwrite your local database? " -n 1
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "Database not restored."
+    exit 1
+  fi
+fi
+
+# Finally restore the database if all has gone well.
+echo ""
+echo "Restoring $1_development database..."
+$MYSQLFOLDER/mysql -u root $1_development < ~/$1_$ENVIRONMENT.sql
+echo "Completed."
