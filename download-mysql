@@ -20,19 +20,15 @@ fi
 
 # Create a database dump on the remote server.
 echo "Connecting to $REMOTESERVER to create a database dump..."
-ssh $REMOTESERVER "mysqldump -u root $1_$ENVIRONMENT > $1_$ENVIRONMENT.sql"
+ssh $REMOTESERVER "mysqldump -u root $1_$ENVIRONMENT | gzip --fast" > ~/$1_$ENVIRONMENT.sql.gz
 if [[ $? > 0 ]]; then
    echo "Remote MySQL dump failed somehow. Script stopped."
    exit
 fi
 
-# Copy the dump from the remote server to the local machine.
-echo "Copying $1_$ENVIRONMENT.sql to local home folder..."
-scp $REMOTESERVER:$1_$ENVIRONMENT.sql ~
-
 # Create a new local database.
 # Also allow the user to quit if it already exists.
-mysqladmin -u root create $1_development&> /dev/null
+mysqladmin -u root create $1_development &> /dev/null
 if [[ $? > 0 ]]; then
   echo "MySQL database $1_development probably already exists."
   read -p "Are you sure you wish to overwrite your local database? " -n 1
@@ -46,5 +42,5 @@ fi
 # Finally restore the database if all has gone well.
 echo ""
 echo "Restoring $1_development database..."
-mysql -u root $1_development < ~/$1_$ENVIRONMENT.sql
+gunzip < ~/$1_$ENVIRONMENT.sql.gz | mysql -u root $1_development
 echo "Completed."
