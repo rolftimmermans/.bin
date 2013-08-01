@@ -18,14 +18,6 @@ if [ "$#" == "0" ]; then
   exit 1
 fi
 
-# Create a database dump on the remote server.
-echo "Connecting to $REMOTESERVER to create a database dump..."
-ssh $REMOTESERVER "mysqldump -u root $1_$ENVIRONMENT | gzip --fast" > ~/$1_$ENVIRONMENT.sql.gz
-if [[ $? > 0 ]]; then
-   echo "Remote MySQL dump failed somehow. Script stopped."
-   exit
-fi
-
 # Create a new local database.
 # Also allow the user to quit if it already exists.
 mysqladmin -u root create $1_development &> /dev/null
@@ -36,11 +28,20 @@ if [[ $? > 0 ]]; then
     echo ""
     echo "Database not restored."
     exit 1
+  else
+    echo ""
   fi
 fi
 
+# Create a database dump on the remote server.
+echo "Connecting to $REMOTESERVER to create a database dump..."
+ssh $REMOTESERVER "mysqldump -u root $1_$ENVIRONMENT | gzip --fast" > ~/$1_$ENVIRONMENT.sql.gz
+if [[ $? > 0 ]]; then
+   echo "Remote MySQL dump failed somehow. Script stopped."
+   exit
+fi
+
 # Finally restore the database if all has gone well.
-echo ""
 echo "Restoring $1_development database..."
 gunzip < ~/$1_$ENVIRONMENT.sql.gz | mysql -u root $1_development
 echo "Completed."
