@@ -1,0 +1,7 @@
+#!/bin/bash
+
+SERVER=$1
+PATH=$2
+FILE=$(/usr/bin/basename "$2")
+
+/usr/bin/ssh $SERVER "gzip '$PATH' --stdout --fast" | /usr/bin/gunzip > "$FILE"
