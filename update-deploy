@@ -1,0 +1,67 @@
+#!/bin/bash
+
+readonly PREVIEWSERVER=puck
+readonly ACCEPTANCESERVER=belinda
+readonly PRODUCTIONSERVER=pandora
+
+readonly COMPOSERLOCATION=/usr/local/composer/composer.phar
+
+# A simple bash script to update and deploy a site.
+# Runs `composer update` and `bundle update`, then pushes the changes to master.
+# Finally it deploys master to preview, acceptance and production (if available).
+# Created by Michiel Verkoijen on 2015-10-30
+# Filename: ~/update-deploy
+
+if ping -c1 -W1 $PRODUCTIONSERVER &> /dev/null; then
+    echo "`tput setaf 2`Production server ($PRODUCTIONSERVER) can be reached`tput setaf 7`"
+    tput op
+else
+    echo "`tput setaf 1`Warning: production server ($PRODUCTIONSERVER) cannot be reached`tput setaf 7`"
+    tput op
+    echo "Script terminated prematurely!"
+    exit;
+fi
+
+git pull origin master
+bundle update
+php $COMPOSERLOCATION update
+
+read -p "Continue to commit, push and deploy? " -n 1
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "Updates made. Nothing committed, pushed or deployed"
+    exit 1
+else
+    echo ""
+    echo "Push changes for this Git repository"
+    git add -A
+    git commit -a -m "Bundle and composer updates."
+    git push origin master
+fi
+
+if ping -c1 -W1 $PREVIEWSERVER &> /dev/null; then
+    echo "`tput setaf 2`Deploy to preview server ($PREVIEWSERVER)`tput setaf 7`"
+    tput op
+    vd deploy preview
+else
+    echo "`tput setaf 1`Preview server ($PREVIEWSERVER) is down`tput setaf 7`"
+    tput op
+fi
+
+if ping -c1 -W1 $ACCEPTANCESERVER &> /dev/null; then
+    echo "`tput setaf 2`Deploy to acceptance server ($ACCEPTANCESERVER)`tput setaf 7`"
+    tput op
+    vd deploy acceptance
+else
+    echo "`tput setaf 1`Acceptance server ($ACCEPTANCESERVER) is down`tput setaf 7`"
+    tput op
+fi
+
+if ping -c1 -W1 $PRODUCTIONSERVER &> /dev/null; then
+    echo "`tput setaf 2`Deploy to production server ($PRODUCTIONSERVER)`tput setaf 7`"
+    tput op
+    vd deploy production
+else
+    echo "`tput setaf 1`Production server ($PRODUCTIONSERVER) is down`tput setaf 7`"
+    tput op
+fi
