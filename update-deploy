@@ -24,7 +24,7 @@ fi
 
 git pull origin master
 bundle update
-php $COMPOSERLOCATION update
+php $COMPOSERLOCATION update --no-dev
 
 read -p "Continue to commit, push and deploy? " -n 1
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
