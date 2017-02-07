@@ -1,0 +1,121 @@
+#!/bin/bash
+
+readonly DEPLOYCONFIGFILE=config/deploy.yml
+readonly COMPOSERLOCATION=/usr/local/composer/composer.phar
+
+# A simple bash script to update and deploy a site.
+# Runs `composer update` and `bundle update`, then pushes the changes to master.
+# Finally it deploys master to preview, acceptance and production (if available).
+# Created by Michiel Verkoijen on 2015-10-30
+# Filename: ~/update-deploy
+
+
+# Check if deploy.yaml can be found otherwise exit immediately.
+if [ ! -f $DEPLOYCONFIGFILE ]; then
+  echo "`tput setaf 1`Warning: Deploy file $DEPLOYCONFIGFILE not found`tput setaf 7`"
+  tput op
+  echo "Please make sure you are running this script from the right location and try again."
+  exit
+fi
+
+# YAML parser from https://gist.github.com/epiloque/8cf512c6d64641bde388
+parse_yaml() {
+  local prefix=$2
+  local s
+  local w
+  local fs
+  s='[[:space:]]*'
+  w='[a-zA-Z0-9_]*'
+  fs="$(echo @|tr @ '\034')"
+  sed -ne "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
+      -e "s|^\($s\)\($w\)$s[:-]$s\(.*\)$s\$|\1$fs\2$fs\3|p" "$1" |
+  awk -F"$fs" '{
+    indent = length($1)/2;
+    vname[indent] = $2;
+    for (i in vname) {if (i > indent) {delete vname[i]}}
+      if (length($3) > 0) {
+        vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+        printf("%s%s%s=(\"%s\")\n", "'"$prefix"'",vn, $2, $3);
+      }
+  }' | sed 's/_=/+=/g'
+}
+echo "Parsing your deploy.yml file..."
+eval $(parse_yaml $DEPLOYCONFIGFILE "deploy_")
+
+if [ -z ${deploy_production_domain+x} ]; then 
+  echo "`tput setaf 1`Warning: Cannot determine production server from deploy.yml file.`tput setaf 7`"
+  tput op
+  echo "Script stopped prematurely."
+  exit
+else
+  readonly PRODUCTIONSERVER=$deploy_production_domain
+fi
+
+if ping -c1 -W1 $PRODUCTIONSERVER &> /dev/null; then
+    echo "`tput setaf 2`Production server ($PRODUCTIONSERVER) can be reached`tput setaf 7`"
+    tput op
+else
+    echo "`tput setaf 1`Warning: production server ($PRODUCTIONSERVER) cannot be reached`tput setaf 7`"
+    tput op
+    echo "Script terminated prematurely!"
+    exit;
+fi
+
+git pull origin master
+bundle update
+php $COMPOSERLOCATION update --no-dev
+
+read -p "Continue to commit, push and deploy? " -n 1
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "Updates made. Nothing committed, pushed or deployed"
+    exit 1
+else
+    echo ""
+    echo "Push changes for this Git repository"
+    git add -A
+    git commit -a -m "Bundle and composer updates."
+    git push origin master
+fi
+
+# Deploy to preview if we can determine the server and connect to it
+if [ -z ${deploy_preview_domain+x} ]; then 
+  echo "`tput setaf 1`Warning: Cannot determine preview server from deploy.yml file.`tput setaf 7`"
+  tput op
+else
+  readonly PREVIEWSERVER=$deploy_preview_domain
+  if ping -c1 -W1 $PREVIEWSERVER &> /dev/null; then
+      echo "`tput setaf 2`Deploy to preview server ($PREVIEWSERVER)`tput setaf 7`"
+      tput op
+      vd deploy preview
+  else
+      echo "`tput setaf 1`Preview server ($PREVIEWSERVER) is down`tput setaf 7`"
+      tput op
+  fi
+fi
+
+# Deploy to acceptance if we can determine the server and connect to it
+if [ -z ${deploy_acceptance_domain+x} ]; then 
+  echo "`tput setaf 1`Warning: Cannot determine acceptance server from deploy.yml file.`tput setaf 7`"
+  tput op
+else
+  readonly ACCEPTANCESERVER=$deploy_acceptance_domain
+  if ping -c1 -W1 $ACCEPTANCESERVER &> /dev/null; then
+      echo "`tput setaf 2`Deploy to acceptance server ($ACCEPTANCESERVER)`tput setaf 7`"
+      tput op
+      vd deploy acceptance
+  else
+      echo "`tput setaf 1`Acceptance server ($ACCEPTANCESERVER) is down`tput setaf 7`"
+      tput op
+  fi
+fi
+
+# Deploy to production if we can connect to it (double check just to be sure)
+if ping -c1 -W1 $PRODUCTIONSERVER &> /dev/null; then
+    echo "`tput setaf 2`Deploy to production server ($PRODUCTIONSERVER)`tput setaf 7`"
+    tput op
+    vd deploy production
+else
+    echo "`tput setaf 1`Production server ($PRODUCTIONSERVER) is down`tput setaf 7`"
+    tput op
+fi
