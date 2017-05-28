@@ -1,0 +1,65 @@
+#!/bin/bash
+
+readonly REMOTESERVER=neso
+readonly ENVIRONMENT=production
+readonly LOCALDBSUFFIX=development
+
+# A simple bash script to download a RethinkDB database from the remote
+# VPC and automatically restore it locally for development.
+# Created by Michiel Verkoijen on 2017-05-28.
+# Filename: ~/.bin/download-rethinkdb
+
+echo "Download a $ENVIRONMENT RethinkDB database and restore it on the local machine."
+
+# Check if a database is specified on the command prompt.
+if [ "$#" == "0" ]; then
+  echo "No database name specified."
+  echo "Usage: download-rethinkdb <FILENAME>"
+  echo "For example: download-rethinkdb sitename_com"
+  exit 1
+fi
+
+# Check if the remote server can be reached.
+if ping -c1 -W1 $REMOTESERVER &> /dev/null; then
+    echo "`tput setaf 2`Remote server ($REMOTESERVER) can be reached`tput setaf 7`"
+    tput op
+else
+    echo "`tput setaf 1`Warning: production server ($REMOTESERVER) cannot be reached.`tput setaf 7`"
+    tput op
+    echo "Maybe your internet connection is down or you have not connected to the VPN."
+    echo "Script terminated prematurely!"
+    exit;
+fi
+
+# Remove latest local dump if it exists
+if rm ~/$1_$ENVIRONMENT.tar.gz &> /dev/null; then
+  echo "Previous local dump file $1_$ENVIRONMENT.tar.gz file has been deleted."
+fi
+
+# Create a database dump from the remote server.
+echo "Connecting to $REMOTESERVER to download a new database dump..."
+rethinkdb dump -c $REMOTESERVER -e $1_$ENVIRONMENT -f ~/$1_$ENVIRONMENT.tar.gz
+if [[ $? > 0 ]]; then
+   echo "You can install the rethinkdb python driver with this command: pip install 'rethinkdb<2.3.0'"
+   echo "`tput setaf 1`Remote RethinkDB dump failed somehow. Script stopped.`tput setaf 7`"
+   tput op
+   exit
+fi
+
+# Restore the production database if all has gone well.
+echo "Restoring $1_$ENVIRONMENT database..."
+rethinkdb restore ~/$1_$ENVIRONMENT.tar.gz
+
+# Drop the previous local development database
+echo -e "import rethinkdb as r; \nr.connect().repl() \nr.db_drop('$1_$LOCALDBSUFFIX').run()" | python &> /dev/null
+if [[ $? > 0 ]]; then
+   echo "No local database $1_$LOCALDBSUFFIX found."
+else
+  echo "Previous database $1_$LOCALDBSUFFIX has been dropped."
+fi
+
+# Finally rename the production database for local development.
+echo "Renaming $1_$ENVIRONMENT database to $1_$LOCALDBSUFFIX..."
+echo -e "import rethinkdb as r; \nr.connect().repl() \nr.db('rethinkdb').table('db_config').filter({'name':'$1_$ENVIRONMENT'}).update({'name':'$1_$LOCALDBSUFFIX'}).run()" | python
+
+echo "Completed."
