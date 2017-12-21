@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly REMOTESERVER=neso
+readonly REMOTESERVER=pan
 readonly ENVIRONMENT=production
 readonly LOCALDBSUFFIX=development
 

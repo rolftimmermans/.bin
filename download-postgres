@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly REMOTESERVER=atlas
+readonly REMOTESERVER=skoll
 readonly ENVIRONMENT=production
 
 # A simple bash script to download a PostgreSQL database from the remote
